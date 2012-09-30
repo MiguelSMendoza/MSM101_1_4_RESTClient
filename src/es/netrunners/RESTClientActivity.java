@@ -23,6 +23,7 @@ import android.app.AlertDialog;
 import android.app.ListActivity;
 import android.content.DialogInterface;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -194,7 +195,7 @@ public class RESTClientActivity extends ListActivity {
 				.getListAdapter().getItem(position);
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
 		builder.setMessage(
-				"Are you sure to DELETE " + itm.get("Name") + " "
+				"Are you sure you want to DELETE " + itm.get("Name") + " "
 						+ itm.get("Surname") + "?")
 				.setCancelable(false)
 				.setPositiveButton("Yes",
@@ -220,7 +221,7 @@ public class RESTClientActivity extends ListActivity {
 
 		HttpClient httpClient = new DefaultHttpClient();
 		HttpDelete del = new HttpDelete(
-				"http://10.0.2.2:5994/API/Clients/Client/" + ID);
+				"http://services.netrunners.es/API/Clients/Client/" + ID);
 
 		del.setHeader("content-type", "application/json");
 
@@ -228,7 +229,7 @@ public class RESTClientActivity extends ListActivity {
 			HttpResponse resp = httpClient.execute(del);
 			String respStr = EntityUtils.toString(resp.getEntity());
 
-			if (respStr.equals("true")) {
+			if (Integer.parseInt(respStr)>0) {
 				Toast.makeText(getApplicationContext(),
 						"Deleted Succesfully !!", Toast.LENGTH_LONG).show();
 				fillList();
@@ -242,33 +243,37 @@ public class RESTClientActivity extends ListActivity {
 	protected void editClient(int iD, String name, String surname, String age) {
 		HttpClient httpClient = new DefaultHttpClient();
 
-		HttpPut put = new HttpPut("http://10.0.2.2:5994/API/Clients/Client");
+		HttpPut put = new HttpPut("http://services.netrunners.es/API/Clients/Client/" + iD);
 		put.setHeader("content-type", "application/json");
 
 		try {
 			// Construimos el objeto cliente en formato JSON
 			JSONObject data = new JSONObject();
 
-			data.put("ID", iD);
 			data.put("Name", name);
 			data.put("Surname", surname);
 			data.put("Age", age);
 
 			StringEntity entity = new StringEntity(data.toString());
 			put.setEntity(entity);
-
+			
 			HttpResponse resp = httpClient.execute(put);
 			String respStr = EntityUtils.toString(resp.getEntity());
-
-			if (respStr.equals("true")) {
+			
+			if (Integer.parseInt(respStr)>0) {
 				Toast.makeText(getApplicationContext(),
 						name + " " + surname + "Editted Succesfully !!",
 						Toast.LENGTH_LONG).show();
 				fillList();
 			}
+			else
+			{
+				Log.e("ERROR", respStr);
+			}
 		} catch (Exception ex) {
 			Toast.makeText(getApplicationContext(), ex.getMessage(),
 					Toast.LENGTH_LONG).show();
+			Log.e("ERROr",ex.getMessage());
 		}
 
 	}
@@ -277,7 +282,7 @@ public class RESTClientActivity extends ListActivity {
 
 		HttpClient httpClient = new DefaultHttpClient();
 
-		HttpPost post = new HttpPost("http://10.0.2.2:5994/API/Clients/Client");
+		HttpPost post = new HttpPost("http://services.netrunners.es/API/Clients/Client");
 
 		post.setHeader("content-type", "application/json");
 		try {
@@ -313,6 +318,10 @@ public class RESTClientActivity extends ListActivity {
 						Toast.LENGTH_LONG).show();
 				fillList();
 			}
+			else
+			{
+				Log.e("ERROR", respStr);
+			}
 		} catch (ClientProtocolException e) {
 			Toast.makeText(getApplicationContext(), e.getMessage(),
 					Toast.LENGTH_LONG).show();
@@ -325,7 +334,7 @@ public class RESTClientActivity extends ListActivity {
 	private void fillList() {
 		HttpClient httpClient = new DefaultHttpClient();
 
-		HttpGet get = new HttpGet("http://10.0.2.2:5994/API/Clients");
+		HttpGet get = new HttpGet("http://services.netrunners.es/API/Clients");
 
 		get.setHeader("content-type", "application/json");
 
