@@ -14,6 +14,8 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -22,6 +24,7 @@ import org.json.JSONObject;
 import android.app.AlertDialog;
 import android.app.ListActivity;
 import android.content.DialogInterface;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.ContextMenu;
@@ -33,352 +36,407 @@ import android.view.View;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.widget.AdapterView;
 import android.widget.EditText;
+import android.widget.ListView;
 import android.widget.SimpleAdapter;
 import android.widget.Toast;
 
 public class RESTClientActivity extends ListActivity {
 
-	String[] from = new String[] { "Name", "Surname", "Age" };
-	int[] to = new int[] { R.id.name, R.id.surname, R.id.age };
+    String[] from = new String[]{"Name", "Surname", "Age"};
+    int[] to = new int[]{R.id.name, R.id.surname, R.id.age};
 
-	/** Called when the activity is first created. */
-	@Override
-	public void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		setContentView(R.layout.main);
-		fillList();
-		registerForContextMenu(this.getListView());
-	}
+    /**
+     * Called when the activity is first created.
+     */
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
+        fillList();
+        registerForContextMenu(this.getListView());
+    }
 
-	@Override
-	public void onCreateContextMenu(ContextMenu menu, View v,
-			ContextMenuInfo menuInfo) {
-		if (v.getId() == android.R.id.list) {
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v,
+                                    ContextMenuInfo menuInfo) {
+        if (v.getId() == android.R.id.list) {
 
-			AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) menuInfo;
+            AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) menuInfo;
 
-			@SuppressWarnings("unchecked")
-			HashMap<String, String> item = (HashMap<String, String>) this
-					.getListAdapter().getItem(info.position);
+            @SuppressWarnings("unchecked")
+            HashMap<String, String> item = (HashMap<String, String>) this
+                    .getListAdapter().getItem(info.position);
 
-			menu.setHeaderTitle(item.get("Name") + " " + item.get("Surname"));
-			String[] menuItems = getResources()
-					.getStringArray(R.array.listmenu);
-			for (int i = 0; i < menuItems.length; i++) {
-				menu.add(Menu.NONE, i, i, menuItems[i]);
-			}
-		}
-	}
+            menu.setHeaderTitle(item.get("Name") + " " + item.get("Surname"));
+            String[] menuItems = getResources()
+                    .getStringArray(R.array.listmenu);
+            for (int i = 0; i < menuItems.length; i++) {
+                menu.add(Menu.NONE, i, i, menuItems[i]);
+            }
+        }
+    }
 
-	@Override
-	public boolean onContextItemSelected(MenuItem item) {
-		AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item
-				.getMenuInfo();
-		@SuppressWarnings("unchecked")
-		HashMap<String, String> itm = (HashMap<String, String>) this
-				.getListAdapter().getItem(info.position);
-		int menuItemIndex = item.getItemId();
-		switch (menuItemIndex) {
-		case 0:
-			showEditClientDialog(Integer.parseInt(itm.get("ID")),
-					itm.get("Name"), itm.get("Surname"), itm.get("Age"));
-			return true;
-		case 1:
-			showConfirmDialog(info.position);
-			return true;
-		default:
-			return super.onOptionsItemSelected(item);
-		}
-	}
+    @Override
+    public boolean onContextItemSelected(MenuItem item) {
+        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item
+                .getMenuInfo();
+        @SuppressWarnings("unchecked")
+        HashMap<String, String> itm = (HashMap<String, String>) this
+                .getListAdapter().getItem(info.position);
+        int menuItemIndex = item.getItemId();
+        switch (menuItemIndex) {
+            case 0:
+                showEditClientDialog(Integer.parseInt(itm.get("ID")),
+                        itm.get("Name"), itm.get("Surname"), itm.get("Age"));
+                return true;
+            case 1:
+                showConfirmDialog(info.position);
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
 
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		MenuInflater inflater = getMenuInflater();
-		inflater.inflate(R.menu.options_menu, menu);
-		return true;
-	}
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.options_menu, menu);
+        return true;
+    }
 
-	@Override
-	public boolean onOptionsItemSelected(MenuItem item) {
-		switch (item.getItemId()) {
-		case R.id.addClient:
-			showNewClientDialog();
-			return true;
-		}
-		return false;
-	}
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.addClient:
+                showNewClientDialog();
+                return true;
+        }
+        return false;
+    }
 
-	private void showNewClientDialog() {
-		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+    private void showNewClientDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
 
-		LayoutInflater factory = LayoutInflater.from(this);
-		final View textEntryView = factory.inflate(R.layout.dialog, null);
-		builder.setView(textEntryView);
-		builder.setTitle("New Client")
-				.setCancelable(false)
-				.setPositiveButton("Add",
-						new DialogInterface.OnClickListener() {
-							@Override
-							public void onClick(DialogInterface dialog, int id) {
-								EditText name = (EditText) textEntryView
-										.findViewById(R.id.newname);
-								EditText surname = (EditText) textEntryView
-										.findViewById(R.id.newsurname);
-								EditText age = (EditText) textEntryView
-										.findViewById(R.id.newage);
-								addClient(name.getText().toString(), surname
-										.getText().toString(), age.getText()
-										.toString());
+        LayoutInflater factory = LayoutInflater.from(this);
+        final View textEntryView = factory.inflate(R.layout.dialog, null);
+        builder.setView(textEntryView);
+        builder.setTitle("New Client")
+                .setCancelable(false)
+                .setPositiveButton("Add",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int id) {
+                                EditText name = (EditText) textEntryView
+                                        .findViewById(R.id.newname);
+                                EditText surname = (EditText) textEntryView
+                                        .findViewById(R.id.newsurname);
+                                EditText age = (EditText) textEntryView
+                                        .findViewById(R.id.newage);
+                                addClient(name.getText().toString(), surname
+                                        .getText().toString(), age.getText()
+                                        .toString());
 
-							}
+                            }
 
-						})
-				.setNegativeButton("Cancel",
-						new DialogInterface.OnClickListener() {
-							@Override
-							public void onClick(DialogInterface dialog, int id) {
-								dialog.cancel();
-							}
-						});
-		AlertDialog alert = builder.create();
-		alert.show();
+                        })
+                .setNegativeButton("Cancel",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int id) {
+                                dialog.cancel();
+                            }
+                        });
+        AlertDialog alert = builder.create();
+        alert.show();
 
-	}
+    }
 
-	private void showEditClientDialog(final int ID, String name,
-			String surname, String age) {
-		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+    private void showEditClientDialog(final int ID, String name,
+                                      String surname, String age) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
 
-		LayoutInflater factory = LayoutInflater.from(this);
-		final View textEntryView = factory.inflate(R.layout.dialog, null);
-		builder.setView(textEntryView);
-		EditText Name = (EditText) textEntryView.findViewById(R.id.newname);
-		EditText Surname = (EditText) textEntryView
-				.findViewById(R.id.newsurname);
-		EditText Age = (EditText) textEntryView.findViewById(R.id.newage);
-		Name.setText(name);
-		Surname.setText(surname);
-		Age.setText(age);
-		builder.setTitle("Edit Client")
-				.setCancelable(false)
-				.setPositiveButton("Save",
-						new DialogInterface.OnClickListener() {
-							@Override
-							public void onClick(DialogInterface dialog, int id) {
-								EditText name = (EditText) textEntryView
-										.findViewById(R.id.newname);
-								EditText surname = (EditText) textEntryView
-										.findViewById(R.id.newsurname);
-								EditText age = (EditText) textEntryView
-										.findViewById(R.id.newage);
-								editClient(ID, name.getText().toString(),
-										surname.getText().toString(), age
-												.getText().toString());
-							}
+        LayoutInflater factory = LayoutInflater.from(this);
+        final View textEntryView = factory.inflate(R.layout.dialog, null);
+        builder.setView(textEntryView);
+        EditText Name = (EditText) textEntryView.findViewById(R.id.newname);
+        EditText Surname = (EditText) textEntryView
+                .findViewById(R.id.newsurname);
+        EditText Age = (EditText) textEntryView.findViewById(R.id.newage);
+        Name.setText(name);
+        Surname.setText(surname);
+        Age.setText(age);
+        builder.setTitle("Edit Client")
+                .setCancelable(false)
+                .setPositiveButton("Save",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int id) {
+                                EditText name = (EditText) textEntryView
+                                        .findViewById(R.id.newname);
+                                EditText surname = (EditText) textEntryView
+                                        .findViewById(R.id.newsurname);
+                                EditText age = (EditText) textEntryView
+                                        .findViewById(R.id.newage);
+                                editClient(ID, name.getText().toString(),
+                                        surname.getText().toString(), age
+                                                .getText().toString());
+                            }
 
-						})
-				.setNegativeButton("Cancel",
-						new DialogInterface.OnClickListener() {
-							@Override
-							public void onClick(DialogInterface dialog, int id) {
-								dialog.cancel();
-							}
-						});
-		AlertDialog alert = builder.create();
-		alert.show();
+                        })
+                .setNegativeButton("Cancel",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int id) {
+                                dialog.cancel();
+                            }
+                        });
+        AlertDialog alert = builder.create();
+        alert.show();
 
-	}
+    }
 
-	private void showConfirmDialog(int position) {
-		@SuppressWarnings("unchecked")
-		final HashMap<String, String> itm = (HashMap<String, String>) this
-				.getListAdapter().getItem(position);
-		AlertDialog.Builder builder = new AlertDialog.Builder(this);
-		builder.setMessage(
-				"Are you sure you want to DELETE " + itm.get("Name") + " "
-						+ itm.get("Surname") + "?")
-				.setCancelable(false)
-				.setPositiveButton("Yes",
-						new DialogInterface.OnClickListener() {
-							@Override
-							public void onClick(DialogInterface dialog, int id) {
-								deleteClient(Integer.parseInt(itm.get("ID")));
+    private void showConfirmDialog(int position) {
+        @SuppressWarnings("unchecked")
+        final HashMap<String, String> itm = (HashMap<String, String>) this
+                .getListAdapter().getItem(position);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage(
+                "Are you sure you want to DELETE " + itm.get("Name") + " "
+                        + itm.get("Surname") + "?")
+                .setCancelable(false)
+                .setPositiveButton("Yes",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int id) {
+                                deleteClient(Integer.parseInt(itm.get("ID")));
 
-							}
-						})
-				.setNegativeButton("No", new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(DialogInterface dialog, int id) {
-						dialog.cancel();
-					}
-				});
-		AlertDialog alert = builder.create();
-		alert.show();
+                            }
+                        })
+                .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int id) {
+                        dialog.cancel();
+                    }
+                });
+        AlertDialog alert = builder.create();
+        alert.show();
 
-	}
+    }
 
-	protected void deleteClient(int ID) {
+    protected void deleteClient(final int ID) {
+        new AsyncTask<Void, Void, Boolean>() {
 
-		HttpClient httpClient = new DefaultHttpClient();
-		HttpDelete del = new HttpDelete(
-				"http://services.netrunners.es/API/Clients/Client/" + ID);
+            @Override
+            protected Boolean doInBackground(Void... params) {
+                HttpClient httpClient = new DefaultHttpClient();
+                HttpDelete del = new HttpDelete(
+                        "http://services.netrunners.es/API/Clients/Client/" + ID);
 
-		del.setHeader("content-type", "application/json");
+                del.setHeader("content-type", "application/json");
 
-		try {
-			HttpResponse resp = httpClient.execute(del);
-			String respStr = EntityUtils.toString(resp.getEntity());
+                try {
+                    HttpResponse resp = httpClient.execute(del);
+                    String respStr = EntityUtils.toString(resp.getEntity());
 
-			if (Integer.parseInt(respStr)>0) {
-				Toast.makeText(getApplicationContext(),
-						"Deleted Succesfully !!", Toast.LENGTH_LONG).show();
-				fillList();
-			}
-		} catch (Exception ex) {
-			Toast.makeText(getApplicationContext(), ex.getMessage(),
-					Toast.LENGTH_LONG).show();
-		}
-	}
+                    if (Integer.parseInt(respStr) > 0) {
+                        return true;
+                    }
+                } catch (Exception ex) {
+                    return false;
+                }
 
-	protected void editClient(int iD, String name, String surname, String age) {
-		HttpClient httpClient = new DefaultHttpClient();
+                return false;
+            }
 
-		HttpPut put = new HttpPut("http://services.netrunners.es/API/Clients/Client/" + iD);
-		put.setHeader("content-type", "application/json");
+            @Override
+            protected void onPostExecute(Boolean aBoolean) {
+                if (aBoolean) {
+                    Toast.makeText(getApplicationContext(),
+                            "Deleted Succesfully !!", Toast.LENGTH_LONG).show();
+                    fillList();
+                } else {
+                    Toast.makeText(getApplicationContext(),
+                            "Error", Toast.LENGTH_LONG).show();
+                }
 
-		try {
-			// Construimos el objeto cliente en formato JSON
-			JSONObject data = new JSONObject();
+            }
+        }.execute();
 
-			data.put("Name", name);
-			data.put("Surname", surname);
-			data.put("Age", age);
 
-			StringEntity entity = new StringEntity(data.toString());
-			put.setEntity(entity);
-			
-			HttpResponse resp = httpClient.execute(put);
-			String respStr = EntityUtils.toString(resp.getEntity());
-			
-			if (Integer.parseInt(respStr)>0) {
-				Toast.makeText(getApplicationContext(),
-						name + " " + surname + "Editted Succesfully !!",
-						Toast.LENGTH_LONG).show();
-				fillList();
-			}
-			else
-			{
-				Log.e("ERROR", respStr);
-			}
-		} catch (Exception ex) {
-			Toast.makeText(getApplicationContext(), ex.getMessage(),
-					Toast.LENGTH_LONG).show();
-			Log.e("ERROr",ex.getMessage());
-		}
+    }
 
-	}
+    protected void editClient(final int iD, final String name, final String surname, final String age) {
+        new AsyncTask<Void, Void, String>() {
 
-	private void addClient(String name, String surname, String age) {
+            @Override
+            protected String doInBackground(Void... params) {
+                HttpClient httpClient = new DefaultHttpClient();
 
-		HttpClient httpClient = new DefaultHttpClient();
+                HttpPut put = new HttpPut("http://services.netrunners.es/API/Clients/Client/" + iD);
+                put.addHeader(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
 
-		HttpPost post = new HttpPost("http://services.netrunners.es/API/Clients/Client");
+                try {
+                    // Construimos el objeto cliente en formato JSON
+                    JSONObject data = new JSONObject();
 
-		post.setHeader("content-type", "application/json");
-		try {
-			// Build JSON Object
-			JSONObject data = new JSONObject();
+                    data.put("Name", name);
+                    data.put("Surname", surname);
+                    data.put("Age", age);
 
-			data.put("Name", name);
-			data.put("Surname", surname);
-			data.put("Age", age);
+                    String json = data.toString();
+                    Log.e("DATA", json);
+                    StringEntity entity = new StringEntity(json);
+                    entity.setContentType(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+                    put.setEntity(entity);
 
-			StringEntity entity;
+                    HttpResponse resp = httpClient.execute(put);
+                    String respStr = EntityUtils.toString(resp.getEntity());
+                    return respStr;
+                } catch (Exception ex) {
+                    return ex.getMessage() + ex.getClass();
+                }
+            }
 
-			entity = new StringEntity(data.toString());
+            @Override
+            protected void onPostExecute(String strResponse) {
+                if (Integer.parseInt(strResponse) > 0) {
+                    Toast.makeText(getApplicationContext(),
+                            "Editted Succesfully !!",
+                            Toast.LENGTH_LONG).show();
+                    fillList();
+                } else {
+                    Toast.makeText(getApplicationContext(),
+                            strResponse, Toast.LENGTH_LONG).show();
+                }
 
-			post.setEntity(entity);
-		} catch (UnsupportedEncodingException e) {
-			Toast.makeText(getApplicationContext(), e.getMessage(),
-					Toast.LENGTH_LONG).show();
-		} catch (JSONException e) {
-			Toast.makeText(getApplicationContext(), e.getMessage(),
-					Toast.LENGTH_LONG).show();
-		}
+            }
+        }.execute();
 
-		HttpResponse resp;
-		try {
-			resp = httpClient.execute(post);
 
-			String respStr = EntityUtils.toString(resp.getEntity());
+    }
 
-			if (respStr.equals("true")) {
-				Toast.makeText(getApplicationContext(),
-						name + " " + surname + " Added Succesfully !!",
-						Toast.LENGTH_LONG).show();
-				fillList();
-			}
-			else
-			{
-				Log.e("ERROR", respStr);
-			}
-		} catch (ClientProtocolException e) {
-			Toast.makeText(getApplicationContext(), e.getMessage(),
-					Toast.LENGTH_LONG).show();
-		} catch (IOException e) {
-			Toast.makeText(getApplicationContext(), e.getMessage(),
-					Toast.LENGTH_LONG).show();
-		}
-	}
+    private void addClient(final String name, final String surname, final String age) {
+        new AsyncTask<Void, Void, String>() {
 
-	private void fillList() {
-		HttpClient httpClient = new DefaultHttpClient();
+            @Override
+            protected String doInBackground(Void... params) {
+                HttpClient httpClient = new DefaultHttpClient();
 
-		HttpGet get = new HttpGet("http://services.netrunners.es/API/Clients");
+                HttpPost post = new HttpPost("http://services.netrunners.es/API/Clients/Client");
 
-		get.setHeader("content-type", "application/json");
+                post.setHeader("content-type", "application/json");
+                try {
+                    // Build JSON Object
+                    JSONObject data = new JSONObject();
 
-		try {
-			HttpResponse resp = httpClient.execute(get);
-			String respStr = EntityUtils.toString(resp.getEntity());
+                    data.put("Name", name);
+                    data.put("Surname", surname);
+                    data.put("Age", age);
 
-			JSONArray respJSON = new JSONArray(respStr);
+                    StringEntity entity;
 
-			Client[] listClients = new Client[respJSON.length()];
+                    entity = new StringEntity(data.toString());
 
-			for (int i = 0; i < respJSON.length(); i++) {
-				JSONObject obj = respJSON.getJSONObject(i);
+                    post.setEntity(entity);
+                } catch (UnsupportedEncodingException e) {
+                    return e.getMessage();
+                } catch (JSONException e) {
+                    return e.getMessage();
+                }
 
-				Client cli = new Client();
-				cli.setID(obj.getInt("ID"));
-				cli.setName(obj.getString("Name"));
-				cli.setSurname(obj.getString("Surname"));
-				cli.setAge(obj.getInt("Age"));
+                HttpResponse resp;
+                try {
+                    resp = httpClient.execute(post);
 
-				listClients[i] = cli;
-			}
+                    String respStr = EntityUtils.toString(resp.getEntity());
 
-			// Fill List with DATA
-			ArrayList<HashMap<String, String>> Clients = new ArrayList<HashMap<String, String>>();
-			for (Client client : listClients) {
+                    return respStr;
+                } catch (ClientProtocolException e) {
+                    return e.getMessage();
+                } catch (IOException e) {
+                    return e.getMessage();
+                }
+            }
 
-				HashMap<String, String> clientData = new HashMap<String, String>();
+            @Override
+            protected void onPostExecute(String strResponse) {
+                if (Integer.parseInt(strResponse) > 0) {
+                    Toast.makeText(getApplicationContext(),
+                            "Added Succesfully !!",
+                            Toast.LENGTH_LONG).show();
+                    fillList();
+                } else {
+                    Toast.makeText(getApplicationContext(),
+                            strResponse, Toast.LENGTH_LONG).show();
+                }
 
-				clientData.put("ID", String.valueOf(client.getID()));
-				clientData.put(from[0], client.getName());
-				clientData.put(from[1], client.getSurname());
-				clientData.put(from[2], String.valueOf(client.getAge()));
+            }
+        }.execute();
 
-				Clients.add(clientData);
-			}
+    }
 
-			SimpleAdapter ListAdapter = new SimpleAdapter(this, Clients,
-					R.layout.row, from, to);
-			setListAdapter(ListAdapter);
-		} catch (Exception e) {
-			Toast.makeText(getApplicationContext(), e.getMessage(),
-					Toast.LENGTH_LONG).show();
-		}
-	}
+
+    private void fillList() {
+
+        new AsyncTask<Void, Integer, String>() {
+
+            @Override
+            protected String doInBackground(Void... params) {
+                JSONArray respJSON = null;
+                HttpClient httpClient = new DefaultHttpClient();
+
+                HttpGet get = new HttpGet("http://services.netrunners.es/API/Clients");
+
+                get.setHeader("content-type", "application/json");
+
+                try {
+                    HttpResponse resp = httpClient.execute(get);
+                    String respStr = EntityUtils.toString(resp.getEntity());
+                    return respStr;
+                } catch (Exception e) {
+                    return e.getMessage();
+                }
+            }
+
+            @Override
+            protected void onPostExecute(String respStr) {
+                JSONArray respJSON = null;
+                try {
+                    respJSON = new JSONArray(respStr);
+                    Client[] listClients = new Client[respJSON.length()];
+                    for (int i = 0; i < respJSON.length(); i++) {
+                        JSONObject obj = null;
+                        obj = respJSON.getJSONObject(i);
+                        Client cli = new Client();
+                        cli.setID(obj.getInt("ID"));
+                        cli.setName(obj.getString("Name"));
+                        cli.setSurname(obj.getString("Surname"));
+                        cli.setAge(obj.getInt("Age"));
+                        listClients[i] = cli;
+                    }
+                    ArrayList<HashMap<String, String>> Clients = new ArrayList<HashMap<String, String>>();
+                    for (Client client : listClients) {
+
+                        HashMap<String, String> clientData = new HashMap<String, String>();
+
+                        clientData.put("ID", String.valueOf(client.getID()));
+                        clientData.put(from[0], client.getName());
+                        clientData.put(from[1], client.getSurname());
+                        clientData.put(from[2], String.valueOf(client.getAge()));
+
+                        Clients.add(clientData);
+                    }
+
+                    SimpleAdapter ListAdapter = new SimpleAdapter(getApplicationContext(), Clients,
+                            R.layout.row, from, to);
+                    setListAdapter(ListAdapter);
+                } catch (JSONException e) {
+                    Toast.makeText(getApplicationContext(),
+                            e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            }
+        }.execute();
+
+    }
 
 }
